@@ -2,7 +2,7 @@ from player.parser import *
 from r2a.ir2a import IR2A
 import time
 import random
-import statistics
+import statistics as stat
 import math
 
 class fdash(IR2A):
@@ -18,6 +18,8 @@ class fdash(IR2A):
         self.delta_t_i = 0 # guarda a diferença do buffering time do último segmento e do penúltimo segmento
         self.T = 35 # constante que guarda o target buffering time, definido no artigo como 35s
         self.d = 60 # constante que guarda o tempo que vai ser levado em conta para calcular o throughput médio, 60s.
+        self.response_number = 0 #guarda a quantidade de segmentos que chegaram
+
 
 
     # as funções short, close e long tomam como parâmetro o buffering time t_i
@@ -29,19 +31,25 @@ class fdash(IR2A):
     # e esse tempo t_i for pequena então short(t_i) vai ser bem grande, próximo de 1. Já se a diferença entre o tempo de buffer limite (self.T)
     # e o tempo t_i for grande, o short(t_i) vai ser próximo de 0 e long(t_i) vai ser próximo de 1.
     # O comportamento dessas funções ta definido na figura 2 do artigo.
-    def short(t_i):
+    def short(self, t_i):
         if t_i < 2*self.T/3:
             return 1
-        if t_i >= 2*self.T/3 and t_i <= self.T:
+        if t_i >= 2*self.T/3 and t_i < self.T:
             return (-3*t_i)/self.T + 3
+        if t_i >= self.T:
+            return 0
 
-    def close(t_i):
+    def close(self, t_i):
+        if t_i < 2*self.T/3:
+            return 0
         if t_i >= 2*self.T/3 and t_i < self.T:
             return (3*t_i/self.T)-2
         if t_i >= self.T and t_i <= 4*self.T:
             return (-1*t_i/(3*self.T)) + 4
 
-    def long(t_i):
+    def long(self, t_i):
+        if t_i < self.T:
+            return 0
         if t_i >= self.T and t_i < 4*self.T:
             return t_i/(3*self.T)-1
         if t_i >= 4*self.T:
@@ -49,42 +57,50 @@ class fdash(IR2A):
 
     # as funções falling, steady e risiing tomam como parâmetro a diferença dos buffering times t_i e t_(i-1).
     # Essas funções recebem o delta buffering time (t_i - t_(i-1)) e retornam
-    # o grau de pertencimento (de 0 a 1) desse delta a uma dada situação.
-    # Por exemplo, dado um delta buffering time, se ele for negativo, então falling(delta_t_i) vai ser alto.
+    # o grau de pertencimento (de 0 a 1) desse delta a uma dada "situação".
+    # Por exemplo, dado um delta buffering time qualquer, se ele for negativo, então falling(delta_t_i) vai ser alto.
     # Se o delta for positivo, então falling(delta_t_i) vai ser próximo de zero e rising(delta_t_i) vai ser alto.
     # O comportamento dessas funções também ta definido na figura 2 do artigo.
 
-    def falling(delta_t_i):
-        if t_i < -2*self.T/3:
+    def falling(self, delta_t_i):
+        if delta_t_i < -2*self.T/3:
             return 1
-        if t_i >= -2*self.T/3 and t_i <= 0:
-            return -3*t_i/(2*self.T)
+        if delta_t_i >= -2*self.T/3 and delta_t_i < 0:
+            return -3*delta_t_i/(2*self.T)
+        if delta_t_i >= 0:
+            return 0
 
-    def steady(delta_t_i):
-        if t_i >= -2*self.T/3 and t_i < 0:
-            return 3*t_i/(2*self.T) + 1
-        if t_i >= 0 and t_i < 4*self.T:
-            return -1*t_i/(4*self.T) + 1
+    def steady(self, delta_t_i):
+        if delta_t_i < -2*self.T/3:
+            return 0
+        if delta_t_i >= -2*self.T/3 and delta_t_i < 0:
+            return 3*delta_t_i/(2*self.T) + 1
+        if delta_t_i >= 0 and delta_t_i < 4*self.T:
+            return -1*delta_t_i/(4*self.T) + 1
+        if delta_t_i >= 4*self.T:
+            return 0
 
-    def rising(delta_t_i):
-        if t_i >= 0 and t_i < 4*self.T:
-            return t_i/(4*self.T)
-        if t_i >= 4*self.T:
+    def rising(self, delta_t_i):
+        if delta_t_i < 0:
+            return 0
+        if delta_t_i >= 0 and delta_t_i < 4*self.T:
+            return delta_t_i/(4*self.T)
+        if delta_t_i >= 4*self.T:
             return 1
 
     # a definição dessa função f segue exatamente o que ta no artigo.
-    def f(t_i, delta_t_i):
+    def f(self, t_i, delta_t_i):
         # as r1,r2,etc são definidas como o mínimo entre as duas funções
         # que definem a regra (exatamente como ta no artigo)
-        r1 = min(short(t_i), falling(delta_t_i))
-        r2 = min(close(t_i), falling(delta_t_i))
-        r3 = min(long(t_i), falling(delta_t_i))
-        r4 = min(short(t_i), steady(delta_t_i))
-        r5 = min(close(t_i), steady(delta_t_i))
-        r6 = min(long(t_i), steady(delta_t_i))
-        r4 = min(short(t_i), rising(delta_t_i))
-        r5 = min(close(t_i), rising(delta_t_i))
-        r6 = min(long(t_i), rising(delta_t_i))
+        r1 = min(self.short(t_i), self.falling(delta_t_i))
+        r2 = min(self.close(t_i), self.falling(delta_t_i))
+        r3 = min(self.long(t_i), self.falling(delta_t_i))
+        r4 = min(self.short(t_i), self.steady(delta_t_i))
+        r5 = min(self.close(t_i), self.steady(delta_t_i))
+        r6 = min(self.long(t_i), self.steady(delta_t_i))
+        r7 = min(self.short(t_i), self.rising(delta_t_i))
+        r8 = min(self.close(t_i), self.rising(delta_t_i))
+        r9 = min(self.long(t_i), self.rising(delta_t_i))
 
         # essas definições também são exatamente o que ta no artigo
         R = math.sqrt(r1**2)
@@ -93,65 +109,62 @@ class fdash(IR2A):
         SI = math.sqrt(r6**2+r8**2)
         I = math.sqrt(r9**2)
 
-        # f é definida como esse quociente pelo artigo
+        # f é definida no artigo como esse quociente
         return (0.25*R + 0.5*SR + 1*NC + 1.5*SI + 2*I)/(SR+R+NC+SI+I)
 
     def handle_xml_request(self, msg):
         self.send_down(msg)
 
     def handle_xml_response(self, msg):
-        # getting qi list
         self.parsed_mpd = parse_mpd(msg.get_payload())
         self.qi = self.parsed_mpd.get_qi()
 
         self.send_up(msg)
 
     def handle_segment_size_request(self, msg):
-        # o tempo de download é a diferença do tempo inicial "self.start" (que foi registrado
-        # no momento que o request foi mandado pra baixo, linha 111) e o tempo final "self.end" (que é registrado
-        # assim que chega a resposta para o request no handle_segment_size_response)
-        download_time = self.end - self.start
+        #se ainda não tiverem nem duas respostas não tem como calcular o delta buffering time (ou seja, nao tem como calcular f())
+        #entao faço o request com a menor qualidade
+        if self.response_number < 2:
+            msg.add_quality_id(self.qi[0])
+        else:
+            download_time = self.end - self.start
+            # o throughput é o quociente entre o tamanho do segmento, registrado na chegada do segmento
+            # em handle_segment_size_request e o tempo de download definido acima.
+            throughput = self.seg_size/download_time
 
-        # o throughput é o quociente entre o tamanho do segmento, registrado na chegada do segmento
-        # em handle_segment_size_request (linha 118) e o tempo de download definido acima.
-        throughput = self.seg_size/download_time
+            #salva o throughput do último seguimento nessa lista de throughputs
+            self.throughputs.append(throughput)
 
-        #salva o throughput do último seguimento nessa lista de throughputs
-        self.throughputs.append(throughput)
+            # definição do limite da próxima bitrate, dada pelo artigo.
+            bitrate_limit = self.f(self.t_i, self.delta_t_i)*stat.mean(self.throughputs[(-1*self.d):]) #throughput medio dos ultimos d segmentos (segmentos de 1s)
 
-        # definição da próxima bitrate dada pelo artigo.
-        bitrate_limit = f(self.t_i, self.delta_t_i)*mean(self.throughputs[(-1*self.d):]) #mean throughput of last d segments (segments of 1s)
-
-        # esse loop escolhe a maior resolução disponível que é menor que o bitrate limit,
-        # como foi definido no artigo
-        i = 0
-        while q_i[i] < bitrate_limit:
-            choosen_bitrate = q_i[i]
-            i = i + 1
-
-        # Hora de definir qual qualidade será escolhida
-        msg.add_quality_id(choosen_bitrate)
+            # esse loop escolhe a maior resolução disponível que é menor que o bitrate limit, como estipulado no paper
+            i = 0
+            while self.qi[i] < bitrate_limit:
+                choosen_bitrate = self.qi[i]
+                i = i + 1
+    
+            msg.add_quality_id(choosen_bitrate)
 
         #começa a contar o tempo pro segmento que vai ser requisitado
         self.start = time.time()
         self.send_down(msg)
 
+
     def handle_segment_size_response(self, msg):
-        # para de contar o tempo de download do segmento
         self.end = time.time()
 
-        #pega o tamanho do segmento em bits
         self.seg_size = msg.get_bit_length()
 
-        # essas duas linhas abaixo precisam ser definidas, mas não sei ainda como pegar o buffer time atual.
-        # esse self.t_i e self.delta_t_i são os parâmetros que
-        # o artigo define como os inputs das funções short, close, long (t_i) e das
-        # funções falling, steady e rising (delta_t_i)
+        #se ainda não tiverem nem duas respostas não tem como calcular o delta
+        # entao
+        if self.response_number < 2:
+            self.t_i = self.response_number
+        else:
+            self.delta_t_i = self.whiteboard.get_playback_buffer_size()[-1][1] - self.t_i
+            self.t_i = self.whiteboard.get_playback_buffer_size()[-1][1]
 
-        # self.delta_t_i = get_current_buffer_time() - self.t_i
-        # self.t_i = get_current_buffer_time()
-
-        #manda a mensagem com o segmento pro player
+        self.response_number += 1
         self.send_up(msg)
 
     def initialize(self):
