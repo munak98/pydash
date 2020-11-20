@@ -31,28 +31,28 @@ class fdash(IR2A):
     # e esse tempo t_i for pequena então short(t_i) vai ser bem grande, próximo de 1. Já se a diferença entre o tempo de buffer limite (self.T)
     # e o tempo t_i for grande, o short(t_i) vai ser próximo de 0 e long(t_i) vai ser próximo de 1.
     # O comportamento dessas funções ta definido na figura 2 do artigo.
-    def short(self, t_i):
-        if t_i < 2*self.T/3:
+    def short_v(self, dif):
+        if dif < 2*self.T/3:
             return 1
-        if t_i >= 2*self.T/3 and t_i < self.T:
-            return (-3*t_i)/self.T + 3
-        if t_i >= self.T:
+        if dif >= 2*self.T/3 and dif < self.T:
+            return (-3*dif)/self.T + 3
+        if dif >= self.T:
             return 0
 
-    def close(self, t_i):
-        if t_i < 2*self.T/3:
+    def close_v(self, dif):
+        if dif < 2*self.T/3:
             return 0
-        if t_i >= 2*self.T/3 and t_i < self.T:
-            return (3*t_i/self.T)-2
-        if t_i >= self.T and t_i <= 4*self.T:
-            return (-1*t_i/(3*self.T)) + 4
+        if dif >= 2*self.T/3 and dif < self.T:
+            return (3*dif/self.T)-2
+        if dif >= self.T and dif <= 4*self.T:
+            return (-1*dif/(3*self.T)) + 4
 
-    def long(self, t_i):
-        if t_i < self.T:
+    def long_v(self, dif):
+        if dif < self.T:
             return 0
-        if t_i >= self.T and t_i < 4*self.T:
-            return t_i/(3*self.T)-1
-        if t_i >= 4*self.T:
+        if dif >= self.T and dif < 4*self.T:
+            return dif/(3*self.T)-1
+        if dif >= 4*self.T:
             return 1
 
     # as funções falling, steady e risiing tomam como parâmetro a diferença dos buffering times t_i e t_(i-1).
@@ -92,25 +92,28 @@ class fdash(IR2A):
     def f(self, t_i, delta_t_i):
         # as r1,r2,etc são definidas como o mínimo entre as duas funções
         # que definem a regra (exatamente como ta no artigo)
-        r1 = min(self.short(t_i), self.falling(delta_t_i))
-        r2 = min(self.close(t_i), self.falling(delta_t_i))
-        r3 = min(self.long(t_i), self.falling(delta_t_i))
-        r4 = min(self.short(t_i), self.steady(delta_t_i))
-        r5 = min(self.close(t_i), self.steady(delta_t_i))
-        r6 = min(self.long(t_i), self.steady(delta_t_i))
-        r7 = min(self.short(t_i), self.rising(delta_t_i))
-        r8 = min(self.close(t_i), self.rising(delta_t_i))
-        r9 = min(self.long(t_i), self.rising(delta_t_i))
+        r1 = min(self.short_v(t_i-self.T), self.falling(delta_t_i))
+        r2 = min(self.close_v(t_i-self.T), self.falling(delta_t_i))
+        r3 = min(self.long_v(t_i-self.T), self.falling(delta_t_i))
+        r4 = min(self.short_v(t_i-self.T), self.steady(delta_t_i))
+        r5 = min(self.close_v(t_i-self.T), self.steady(delta_t_i))
+        r6 = min(self.long_v(t_i-self.T), self.steady(delta_t_i))
+        r7 = min(self.short_v(t_i-self.T), self.rising(delta_t_i))
+        r8 = min(self.close_v(t_i-self.T), self.rising(delta_t_i))
+        r9 = min(self.long_v(t_i-self.T), self.rising(delta_t_i))
 
         # essas definições também são exatamente o que ta no artigo
+
         R = math.sqrt(r1**2)
         SR = math.sqrt(r2**2+r4**2)
         NC = math.sqrt(r3**2+r5**2+r7**2)
         SI = math.sqrt(r6**2+r8**2)
         I = math.sqrt(r9**2)
 
+        f = (0.25*R + 0.5*SR + 1*NC + 1.5*SI + 2*I)/(SR+R+NC+SI+I)
+
         # f é definida no artigo como esse quociente
-        return (0.25*R + 0.5*SR + 1*NC + 1.5*SI + 2*I)/(SR+R+NC+SI+I)
+        return f
 
     def handle_xml_request(self, msg):
         self.send_down(msg)
@@ -143,7 +146,7 @@ class fdash(IR2A):
             while self.qi[i] < bitrate_limit:
                 choosen_bitrate = self.qi[i]
                 i = i + 1
-    
+
             msg.add_quality_id(choosen_bitrate)
 
         #começa a contar o tempo pro segmento que vai ser requisitado
