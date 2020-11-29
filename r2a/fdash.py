@@ -31,28 +31,28 @@ class fdash(IR2A):
     # e esse tempo t_i for pequena então short(t_i) vai ser bem grande, próximo de 1. Já se a diferença entre o tempo de buffer limite (self.T)
     # e o tempo t_i for grande, o short(t_i) vai ser próximo de 0 e long(t_i) vai ser próximo de 1.
     # O comportamento dessas funções ta definido na figura 2 do artigo.
-    def short_v(self, dif):
-        if dif < 2*self.T/3:
+    def short_v(self, t_i):
+        if t_i < 2*self.T/3:
             return 1
-        if dif >= 2*self.T/3 and dif < self.T:
-            return (-3*dif)/self.T + 3
-        if dif >= self.T:
+        if t_i >= 2*self.T/3 and t_i < self.T:
+            return (-3*t_i)/self.T + 3
+        if t_i >= self.T:
             return 0
 
-    def close_v(self, dif):
-        if dif < 2*self.T/3:
+    def close_v(self, t_i):
+        if t_i < 2*self.T/3:
             return 0
-        if dif >= 2*self.T/3 and dif < self.T:
-            return (3*dif/self.T)-2
-        if dif >= self.T and dif <= 4*self.T:
-            return (-1*dif/(3*self.T)) + 4
+        if t_i >= 2*self.T/3 and t_i < self.T:
+            return (3*t_i/self.T)-2
+        if t_i >= self.T and t_i <= 4*self.T:
+            return (-1*t_i/(3*self.T)) + 4
 
-    def long_v(self, dif):
-        if dif < self.T:
+    def long_v(self, t_i):
+        if t_i < self.T:
             return 0
-        if dif >= self.T and dif < 4*self.T:
-            return dif/(3*self.T)-1
-        if dif >= 4*self.T:
+        if t_i >= self.T and t_i < 4*self.T:
+            return t_i/(3*self.T)-1
+        if t_i >= 4*self.T:
             return 1
 
     # as funções falling, steady e risiing tomam como parâmetro a diferença dos buffering times t_i e t_(i-1).
@@ -92,15 +92,15 @@ class fdash(IR2A):
     def f(self, t_i, delta_t_i):
         # as r1,r2,etc são definidas como o mínimo entre as duas funções
         # que definem a regra (exatamente como ta no artigo)
-        r1 = min(self.short_v(t_i-self.T), self.falling(delta_t_i))
-        r2 = min(self.close_v(t_i-self.T), self.falling(delta_t_i))
-        r3 = min(self.long_v(t_i-self.T), self.falling(delta_t_i))
-        r4 = min(self.short_v(t_i-self.T), self.steady(delta_t_i))
-        r5 = min(self.close_v(t_i-self.T), self.steady(delta_t_i))
-        r6 = min(self.long_v(t_i-self.T), self.steady(delta_t_i))
-        r7 = min(self.short_v(t_i-self.T), self.rising(delta_t_i))
-        r8 = min(self.close_v(t_i-self.T), self.rising(delta_t_i))
-        r9 = min(self.long_v(t_i-self.T), self.rising(delta_t_i))
+        r1 = min(self.short_v(t_i), self.falling(delta_t_i))
+        r2 = min(self.close_v(t_i), self.falling(delta_t_i))
+        r3 = min(self.long_v(t_i), self.falling(delta_t_i))
+        r4 = min(self.short_v(t_i), self.steady(delta_t_i))
+        r5 = min(self.close_v(t_i), self.steady(delta_t_i))
+        r6 = min(self.long_v(t_i), self.steady(delta_t_i))
+        r7 = min(self.short_v(t_i), self.rising(delta_t_i))
+        r8 = min(self.close_v(t_i), self.rising(delta_t_i))
+        r9 = min(self.long_v(t_i), self.rising(delta_t_i))
 
         # essas definições também são exatamente o que ta no artigo
 
