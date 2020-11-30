@@ -11,6 +11,7 @@ class fdash(IR2A):
         self.parsed_mpd = ''
         self.qi = []
         self.seg_size = 0 # guarda o tamanho do ultimo segmento em bits
+        self.seg_time = 0 # guarda o tamanho do ultimo segmento em segundos
         self.start = 0 # guarda o tempo em que foi iniciada a requisição do segmento
         self.end = 0 # guarda o tempo em que chegou a resposta da requisição do segmento
         self.throughputs = [] #guarda os throughputs de todos os segmentos
@@ -139,10 +140,12 @@ class fdash(IR2A):
             self.throughputs.append(throughput)
 
             # definição do limite da próxima bitrate, dada pelo artigo.
-            bitrate_limit = self.f(self.t_i, self.delta_t_i)*stat.mean(self.throughputs[(-1*self.d):]) #throughput medio dos ultimos d segmentos (segmentos de 1s)
-
+            bitrate_limit = self.f(self.t_i, self.delta_t_i)*stat.mean(self.throughputs[(-1*int(self.d/self.seg_time)):]) #throughput medio dos ultimos d segundos
+            print(bitrate_limit)
+            print(self.qi)
             # esse loop escolhe a maior resolução disponível que é menor que o bitrate limit, como estipulado no paper
             i = 0
+            choosen_bitrate = self.qi[0]
             while self.qi[i] < bitrate_limit:
                 choosen_bitrate = self.qi[i]
                 i = i + 1
@@ -160,12 +163,12 @@ class fdash(IR2A):
         self.seg_size = msg.get_bit_length()
 
         #se ainda não tiverem nem duas respostas não tem como calcular o delta
-        # entao
         if self.response_number < 2:
-            self.t_i = self.response_number
+            self.seg_time = msg.get_segment_size() #guarda o tamanho do segmento de resposta em segundos
+            self.t_i = self.response_number*self.seg_time
         else:
-            self.delta_t_i = self.whiteboard.get_playback_buffer_size()[-1][1] - self.t_i
-            self.t_i = self.whiteboard.get_playback_buffer_size()[-1][1]
+            self.delta_t_i = self.whiteboard.get_amount_video_to_play()*self.seg_time - self.t_i
+            self.t_i = self.whiteboard.get_amount_video_to_play()*self.seg_time
 
         self.response_number += 1
         self.send_up(msg)
