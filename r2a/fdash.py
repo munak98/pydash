@@ -141,8 +141,7 @@ class fdash(IR2A):
 
             # definição do limite da próxima bitrate, dada pelo artigo.
             bitrate_limit = self.f(self.t_i, self.delta_t_i)*stat.mean(self.throughputs[(-1*int(self.d/self.seg_time)):]) #throughput medio dos ultimos d segundos
-            print(bitrate_limit)
-            print(self.qi)
+
             # esse loop escolhe a maior resolução disponível que é menor que o bitrate limit, como estipulado no paper
             i = 0
             choosen_bitrate = self.qi[0]
