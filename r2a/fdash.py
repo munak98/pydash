@@ -36,7 +36,8 @@ class fdash(IR2A):
         if t_i < 2*self.T/3:
             return 1
         if t_i >= 2*self.T/3 and t_i < self.T:
-            return (-3*t_i)/self.T + 3
+            # return (-3*t_i)/self.T + 3
+            return 1 - 1 / (self.T/ 3) * (t_i - 2 * self.T / 3);
         if t_i >= self.T:
             return 0
 
@@ -44,15 +45,18 @@ class fdash(IR2A):
         if t_i < 2*self.T/3:
             return 0
         if t_i >= 2*self.T/3 and t_i < self.T:
-            return (3*t_i/self.T)-2
+            # return (3*t_i/self.T)-2
+            return 1 / (self.T / 3) * (t_i - 2 * self.T / 3);
         if t_i >= self.T and t_i <= 4*self.T:
-            return (-1*t_i/(3*self.T)) + 4
+            # return (-1*t_i/(3*self.T)) + 4
+            return  1 - 1 / (3 * self.T) * (t_i - self.T);
 
     def long_v(self, t_i):
         if t_i < self.T:
             return 0
         if t_i >= self.T and t_i < 4*self.T:
-            return t_i/(3*self.T)-1
+            # return t_i/(3*self.T)-1
+            return 1 / (3 * self.T) * (t_i - self.T);
         if t_i >= 4*self.T:
             return 1
 
