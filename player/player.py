@@ -24,7 +24,7 @@ from player.parser import *
 from base.whiteboard import Whiteboard
 
 '''
-quality_id - Taxa em que o video foi codificado (46980bps, ..., 4726737bps) 
+quality_id - Taxa em que o video foi codificado (46980bps, ..., 4726737bps)
 qi         - indice de qualidade normalizado
 segment_id - número de sequência do arquivo de video
 
@@ -317,11 +317,20 @@ class Player(SimpleModule):
             x.append(items[i][0])
             y.append(items[i][1])
 
+        MEDIUM_SIZE = 15
+        BIGGER_SIZE = 20
+
+        plt.rc('axes', titlesize=MEDIUM_SIZE)     # fontsize of the axes title
+        plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=MEDIUM_SIZE)    # fontsize of the tick labels
+        plt.rc('ytick', labelsize=MEDIUM_SIZE)    # fontsize of the tick labels
+        plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
         plt.plot(x, y, label=file_name)
         plt.xlabel(x_axis)
         plt.ylabel(y_axis)
         plt.title(title)
-
+        plt.gcf().subplots_adjust(bottom=0.15, left=0.20)
         plt.savefig(f'./results/{file_name}.png')
         plt.clf()
         plt.cla()
